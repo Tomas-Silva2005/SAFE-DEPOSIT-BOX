@@ -1,0 +1,2 @@
+# Dependências futuras da API (Flask/FastAPI, etc.)
+# flask>=3.0
