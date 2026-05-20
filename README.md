@@ -12,22 +12,28 @@ SAFE-DEPOSIT-BOX/
 ```
 
 ## Início rápido
+Para a aplicação funcionar com o sistema real, seguir próximos passos em dois terminais separados.
+
+## 1. BACKEND (API Python)
+1. Entrar na pasta do BACKEND:
+```bash
+   cd backend
+```
+2. Instalar dependências necessárias:
+    pip install -r requirements.txt
+3. Executar servidor:
+    python app.py
 
 ### Frontend
-
+1. Entrar na pasta do FRONTEND:
 ```bash
-cd frontend
-npm install
-npm run dev
+    cd frontend
 ```
-
+2. Instalar dependências necessárias:
+    npm install
+3. Iniciar servidor de desenvolvimento:
+    npm run dev
 Abre [http://localhost:5173](http://localhost:5173).
 
-### Backend
-
-```bash
-cd backend
-python database.py
-```
 
 Mais detalhes em [frontend/README.md](frontend/README.md) e [backend/README.md](backend/README.md).

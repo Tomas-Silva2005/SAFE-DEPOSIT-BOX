@@ -1,2 +1,3 @@
-# Dependências futuras da API (Flask/FastAPI, etc.)
-# flask>=3.0
+flask>=3.0
+flask-cors>=4.0
+cryptography>=42.0
