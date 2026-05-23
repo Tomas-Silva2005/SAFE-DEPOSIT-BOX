@@ -25,6 +25,7 @@ def obter_chave_integridade():
 
 CHAVE_INTEGRIDADE_SISTEMA = obter_chave_integridade()
 
+# password
 def gerar_chave_derivada(password_str, salt):
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
@@ -37,6 +38,22 @@ def gerar_chave_derivada(password_str, salt):
 def gerar_iv():
     return os.urandom(16)
 
+
+def serializar_chave_simetrica(chave: bytes) -> str:
+    return f"sdb_key_{chave.hex()}"
+
+
+def desserializar_chave_simetrica(secret: str) -> bytes:
+    segredo = (secret or '').strip()
+    if segredo.startswith('sdb_key_'):
+        segredo = segredo[len('sdb_key_'):]
+
+    chave = bytes.fromhex(segredo)
+    if len(chave) != 32:
+        raise ValueError('Chave simétrica inválida.')
+    return chave
+
+# aes
 def cifrar_aes_256_cbc(mensagem_str, chave, iv):
     dados = mensagem_str.encode()
     padder = padding.PKCS7(128).padder()
@@ -55,19 +72,35 @@ def decifrar_aes_256_cbc(criptograma, chave, iv):
     dados = unpadder.update(dados_padded) + unpadder.finalize()
     return dados.decode('utf-8')
 
-def calcular_hmac(criptograma: bytes, iv: bytes) -> bytes:
-    h = hmac.HMAC(CHAVE_INTEGRIDADE_SISTEMA, hashes.SHA256())
+def calcular_hmac_alg(criptograma: bytes, iv: bytes, alg: str = 'SHA256') -> bytes:
+    alg = (alg or 'SHA256').upper()
+    if alg == 'SHA512':
+        hash_algo = hashes.SHA512()
+    else:
+        hash_algo = hashes.SHA256()
+
+    h = hmac.HMAC(CHAVE_INTEGRIDADE_SISTEMA, hash_algo)
     h.update(iv + criptograma)
     return h.finalize()
 
-def verificar_hmac(criptograma: bytes, hmac_guardado: bytes, iv: bytes) -> bool:
-    h = hmac.HMAC(CHAVE_INTEGRIDADE_SISTEMA, hashes.SHA256())
-    h.update(iv + criptograma)
-    try:
-        h.verify(hmac_guardado)
-        return True
-    except Exception:
-        return False
+
+def verificar_hmac(criptograma: bytes, hmac_guardado: bytes, iv: bytes, alg: str = None) -> bool:
+    # If alg is provided, try that first; otherwise try SHA256 then SHA512
+    alg_try = [alg] if alg else ['SHA256', 'SHA512']
+    for a in alg_try:
+        try:
+            a_up = (a or 'SHA256').upper()
+            if a_up == 'SHA512':
+                hash_algo = hashes.SHA512()
+            else:
+                hash_algo = hashes.SHA256()
+            h = hmac.HMAC(CHAVE_INTEGRIDADE_SISTEMA, hash_algo)
+            h.update(iv + criptograma)
+            h.verify(hmac_guardado)
+            return True
+        except Exception:
+            continue
+    return False
 
 def gerar_par_chaves_rsa(tamanho_modulo: int = 2048):
     chave_privada = rsa.generate_private_key(
@@ -80,35 +113,75 @@ def gerar_par_chaves_rsa(tamanho_modulo: int = 2048):
     ).decode("utf-8")
     return chave_privada, chave_publica_pem
 
-def assinar_mensagem(mensagem: str, chave_privada: RSAPrivateKey) -> bytes:
+def assinar_mensagem(mensagem: str, chave_privada: RSAPrivateKey, signature_alg: str = 'SHA256') -> bytes:
     if not chave_privada:
         raise ValueError("Chave privada inválida.")
     if not mensagem:
         raise ValueError("Mensagem não pode estar vazia.")
+    signature_alg = (signature_alg or 'SHA256').upper()
+    if signature_alg == 'SHA512':
+        sig_hash = hashes.SHA512()
+    else:
+        sig_hash = hashes.SHA256()
     return chave_privada.sign(
         mensagem.encode("utf-8"),
         asym_padding.PSS(
-            mgf=asym_padding.MGF1(hashes.SHA256()),
+            mgf=asym_padding.MGF1(sig_hash),
             salt_length=asym_padding.PSS.MAX_LENGTH,
         ),
-        hashes.SHA256(),
+        sig_hash,
     )
 
-def verificar_assinatura(mensagem: str, assinatura: bytes, chave_pub_pem: str) -> bool:
+def verificar_assinatura(mensagem: str, assinatura: bytes, chave_pub_pem: str, signature_alg: str = 'SHA256') -> bool:
     try:
         chave_publica = serialization.load_pem_public_key(chave_pub_pem.encode("utf-8"))
+        signature_alg = (signature_alg or 'SHA256').upper()
+        if signature_alg == 'SHA512':
+            sig_hash = hashes.SHA512()
+        else:
+            sig_hash = hashes.SHA256()
         chave_publica.verify(
             assinatura,
             mensagem.encode("utf-8"),
             asym_padding.PSS(
-                mgf=asym_padding.MGF1(hashes.SHA256()),
+                mgf=asym_padding.MGF1(sig_hash),
                 salt_length=asym_padding.PSS.MAX_LENGTH,
             ),
-            hashes.SHA256(),
+            sig_hash,
         )
         return True
     except Exception:
         return False
+
+
+def cifrar(mensagem_str, chave, iv, cipher_name='AES-256-CBC'):
+    cipher_name = (cipher_name or 'AES-256-CBC').upper()
+    if cipher_name == 'AES-256-CTR':
+        cifra = Cipher(algorithms.AES(chave), modes.CTR(iv))
+        encryptor = cifra.encryptor()
+        return encryptor.update(mensagem_str.encode()) + encryptor.finalize()
+    elif 'CHACHA' in cipher_name:
+        cifra = Cipher(algorithms.ChaCha20(chave, iv), mode=None)
+        encryptor = cifra.encryptor()
+        return encryptor.update(mensagem_str.encode())
+    else:
+        return cifrar_aes_256_cbc(mensagem_str, chave, iv)
+
+
+def decifrar(criptograma, chave, iv, cipher_name='AES-256-CBC'):
+    cipher_name = (cipher_name or 'AES-256-CBC').upper()
+    if cipher_name == 'AES-256-CTR':
+        cifra = Cipher(algorithms.AES(chave), modes.CTR(iv))
+        decryptor = cifra.decryptor()
+        dados = decryptor.update(criptograma) + decryptor.finalize()
+        return dados.decode('utf-8')
+    elif 'CHACHA' in cipher_name:
+        cifra = Cipher(algorithms.ChaCha20(chave, iv), mode=None)
+        decryptor = cifra.decryptor()
+        dados = decryptor.update(criptograma)
+        return dados.decode('utf-8')
+    else:
+        return decifrar_aes_256_cbc(criptograma, chave, iv)
 
 
 @app.route('/api/deposit', methods=['POST'])
@@ -116,17 +189,20 @@ def api_deposit():
     data = request.get_json() or {}
     mensagem = data.get('message', '').strip()
     metodo = data.get('method', 'password')
+    cipher = data.get('cipher', 'AES-256-CBC')
+    hmac_hash = data.get('hmac', 'SHA256')
+    signature_hash = data.get('signatureHash', 'SHA256')
     
     if not mensagem:
         return jsonify({"message": "A mensagem não pode estar vazia."}), 400
 
     # Gerar os parâmetros aleatórios base do teu algoritmo
-    meu_salt = os.urandom(16)
+    meu_salt = os.urandom(16) if metodo == 'password' else None
     meu_iv = gerar_iv()
     
     # Gerar o par de chaves RSA que assina a mensagem (Autenticidade)
     chave_priv_assinatura, chave_pub_assinatura_pem = gerar_par_chaves_rsa(2048)
-    assinatura = assinar_mensagem(mensagem, chave_priv_assinatura)
+    assinatura = assinar_mensagem(mensagem, chave_priv_assinatura, signature_hash)
 
     # Determinar a chave de cifragem simétrica (AES-256) com base no input do ecrã
     if metodo == 'password':
@@ -135,134 +211,187 @@ def api_deposit():
             return jsonify({"message": "Palavra-passe em falta."}), 400
         minha_chave = gerar_chave_derivada(pwd, meu_salt)
         secret_para_o_frontend = pwd
-    else:
-        # Se for chave simétrica gerada ou RSA, o Python cria uma chave AES aleatória
+    elif metodo == 'symmetric':
         minha_chave = os.urandom(32)
-        if metodo == 'rsa':
-            tamanho = int(data.get('rsaModulus', 2048))
-            chave_priv_rsa, _ = gerar_par_chaves_rsa(tamanho)
-            # Transforma a chave privada em PEM para dar ao utilizador no ecrã
-            secret_para_o_frontend = chave_priv_rsa.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption()
-            ).decode('utf-8')
-        else:
-            # Método simétrico puro
-            secret_para_o_frontend = f"sdb_key_{minha_chave.hex()[:16]}"
+        secret_para_o_frontend = serializar_chave_simetrica(minha_chave)
+    elif metodo in ('rsa', 'keys'):
+        minha_chave = os.urandom(32)
+        tamanho = int(data.get('rsaModulus', 2048))
+        chave_priv_rsa, _ = gerar_par_chaves_rsa(tamanho)
+        # cifra a chave simétrica com a chave pública do par gerado
+        pub = chave_priv_rsa.public_key()
+        enc_key = pub.encrypt(
+            minha_chave,
+            asym_padding.OAEP(
+                mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None,
+            ),
+        )
+        enc_key_hex = enc_key.hex()
+        # Transforma a chave privada em PEM para dar ao utilizador no ecrã
+        secret_para_o_frontend = chave_priv_rsa.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        ).decode('utf-8')
+    else:
+        return jsonify({"message": "Método de depósito não suportado."}), 400
 
     # Aplicar as tuas funções de Cifra e Integridade
-    criptograma = cifrar_aes_256_cbc(mensagem, minha_chave, meu_iv)
-    meu_hmac = calcular_hmac(criptograma, meu_iv)
+    criptograma = cifrar(mensagem, minha_chave, meu_iv, cipher)
+    meu_hmac = calcular_hmac_alg(criptograma, meu_iv, hmac_hash)
     
-    # Enviar para o SQLite usando a função de 11 colunas dos teus colegas
+    # Gravar na base de dados (esquema simples definido em database.py)
+    # O schema atual só armazena cryptogram, method, iv, salt, hmac e signature.
     id_gerado = database.guardar_cofre(
-        cryptogram=criptograma.hex(),
-        method=metodo,
-        iv=meu_iv.hex(),
-        salt=meu_salt.hex(),
-        hmac_value=meu_hmac.hex(),
-        signature=assinatura.hex(),
-        cipher="AES-256-CBC",  # Focado na vossa implementação principal
-        signature_hash="SHA256",
-        rsa_modulus=data.get('rsaModulus', 2048) if metodo == 'rsa' else None,
-        wrapped_key=minha_chave.hex() if metodo != 'password' else None,
-        signing_public_key=chave_pub_assinatura_pem
+        criptograma := criptograma.hex(),
+        metodo,
+        meu_iv.hex(),
+        meu_salt.hex() if meu_salt is not None else None,
+        meu_hmac.hex(),
+        assinatura.hex() if assinatura is not None else None,
+        signature_pub=chave_pub_assinatura_pem,
+        enc_key=enc_key_hex if metodo == 'rsa' else None,
+        cipher=cipher,
+        signature_hash=signature_hash,
+        hmac_hash=hmac_hash,
+        rsa_modulus=(int(data.get('rsaModulus')) if data.get('rsaModulus') else None),
     )
     
     if id_gerado is None:
         return jsonify({"message": "Erro ao gravar na base de dados."}), 500
-        
-    return jsonify({
-        "vaultId": database.format_vault_id(id_gerado), # Devolve 'vault_1', 'vault_2', etc.
+
+    # O database.py não fornece format_vault_id; formatamos localmente
+    resp = {
+        "vaultId": f"vault_{id_gerado}",
         "method": metodo,
-        "cipher": "AES-256-CBC",
-        "secret": secret_para_o_frontend
-    })
+        "cipher": cipher,
+        "iv": meu_iv.hex(),
+        "salt": meu_salt.hex() if meu_salt is not None else None,
+        "secret": secret_para_o_frontend,
+        "hmac": meu_hmac.hex(),
+        "signatureHash": signature_hash,
+    }
+    if metodo == 'rsa':
+        resp['rsaModulus'] = int(data.get('rsaModulus', 2048))
+    return jsonify(resp)
 
 
-@app.route('/api/open', methods=['POST'])
+@app.route('/api/open', methods=['POST'])   
 def api_open():
     data = request.get_json() or {}
     vault_id_raw = data.get('vaultId')
-    metodo = data.get('method')
     secret_fornecido = data.get('secret', '').strip()
     
-    cofre_id = database.parse_vault_id(vault_id_raw)
+    # parser simples para o formato 'vault_N'
+    def parse_vault_id(v):
+        if v is None:
+            return None
+        raw = str(v).strip()
+        if raw.startswith('vault_'):
+            raw = raw[len('vault_'):]
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+
+    cofre_id = parse_vault_id(vault_id_raw)
     if cofre_id is None:
         return jsonify({"message": "ID do cofre inválido."}), 400
-        
+
     registo = database.obter_cofre(cofre_id)
     if not registo:
         return jsonify({"message": "O ID indicado não existe."}), 404
+
+    metodo = data.get('method') or registo['method']
 
     # Extrair valores Hex da BD e convertê-los de volta a bytes
     try:
         criptograma = bytes.fromhex(registo['cryptogram'])
         iv = bytes.fromhex(registo['iv'])
-        salt = bytes.fromhex(registo['salt'])
+        salt = bytes.fromhex(registo['salt']) if registo.get('salt') else b''
         hmac_guardado = bytes.fromhex(registo['hmac'])
-        assinatura = bytes.fromhex(registo['signature'])
+        assinatura = bytes.fromhex(registo['signature']) if registo.get('signature') else None
+        signature_pub = registo.get('signature_pub')
+        cipher_stored = registo.get('cipher') or 'AES-256-CBC'
+        signature_hash_stored = registo.get('signature_hash') or 'SHA256'
+        hmac_hash_stored = registo.get('hmac_hash') or None
     except Exception:
-        # Se os dados estiverem corrompidos de forma a quebrar o Hex (Ex: botão de Adulterar)
+        # Dados corruptos (por exemplo após adulteração manual)
         return jsonify({
-            "hmacStatus": "invalid", "signatureStatus": "invalid", "message": "",
-            "cipher": registo.get('cipher', 'AES-256-CBC'), "signatureHash": registo.get('signature_hash', 'SHA256')
+            "hmacStatus": "invalid",
+            "signatureStatus": "unsupported",
+            "message": "",
+            "cipher": "AES-256-CBC",
+            "signatureHash": "SHA256",
         })
 
     # 1. Validar Integridade com o teu HMAC
-    if not verificar_hmac(criptograma, hmac_guardado, iv):
+    if not verificar_hmac(criptograma, hmac_guardado, iv, hmac_hash_stored):
         return jsonify({
             "hmacStatus": "invalid",
             "signatureStatus": "invalid",
             "message": "",
-            "cipher": registo['cipher'],
-            "signatureHash": registo['signature_hash']
+            "cipher": cipher_stored,
+            "signatureHash": signature_hash_stored
         })
 
-    # 2. Recuperar a chave correta e decifrar com o teu AES-256-CBC
+    # 2. Recuperar a chave correta e decifrar com a cifra armazenada
     try:
         if metodo == 'password':
             chave_decifra = gerar_chave_derivada(secret_fornecido, salt)
+        elif metodo == 'symmetric':
+            chave_decifra = desserializar_chave_simetrica(secret_fornecido)
+        elif metodo in ('rsa', 'keys'):
+            # secret_fornecido is expected to be the user's RSA private key PEM
+            try:
+                priv = serialization.load_pem_private_key(secret_fornecido.encode('utf-8'), password=None)
+            except Exception:
+                return jsonify({"message": "Chave privada RSA inválida."}), 400
+
+            enc_key_hex = registo.get('enc_key')
+            if not enc_key_hex:
+                return jsonify({"message": "Chave cifrada ausente no cofre."}), 500
+
+            try:
+                chave_decifra = priv.decrypt(
+                    bytes.fromhex(enc_key_hex),
+                    asym_padding.OAEP(
+                        mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),
+                        algorithm=hashes.SHA256(),
+                        label=None,
+                    ),
+                )
+            except Exception:
+                return jsonify({"message": "Falha ao decifrar a chave com a chave privada RSA fornecida."}), 401
         else:
-            # Recupera a chave simétrica que ficou guardada em segurança no 'wrapped_key'
-            chave_decifra = bytes.fromhex(registo['wrapped_key'])
-            
-        msg_decifrada = decifrar_aes_256_cbc(criptograma, chave_decifra, iv)
+            return jsonify({"message": f"Método não suportado: {metodo}."}), 400
+
+        msg_decifrada = decifrar(criptograma, chave_decifra, iv, cipher_stored)
     except Exception:
         return jsonify({"message": "Chave incorreta. Falha na decifragem do algoritmo."}), 401
 
-    # 3. Validar a Assinatura Digital RSA
-    assinatura_valida = verificar_assinatura(msg_decifrada, assinatura, registo['signing_public_key'])
-    
+    # 3. Verificação de assinatura (se tivermos chave pública guardada)
+    signature_status = 'not_verified'
+    try:
+        if signature_pub and assinatura:
+            ok = verificar_assinatura(msg_decifrada, assinatura, signature_pub, signature_hash_stored)
+            signature_status = 'valid' if ok else 'invalid'
+        else:
+            signature_status = 'not_verified'
+    except Exception:
+        signature_status = 'not_verified'
+
     return jsonify({
         "hmacStatus": "valid",
-        "signatureStatus": "valid" if assinatura_valida else "invalid",
+        "signatureStatus": signature_status,
         "message": msg_decifrada,
-        "cipher": registo['cipher'],
-        "signatureHash": registo['signature_hash']
+        "cipher": cipher_stored,
+        "iv": iv.hex(),
+        "salt": registo.get('salt'),
+        "signatureHash": signature_hash_stored,
     })
-
-
-@app.route('/api/tamper-demo', methods=['POST'])
-def api_tamper():
-    data = request.get_json() or {}
-    vault_id_raw = data.get('vaultId')
-    cofre_id = database.parse_vault_id(vault_id_raw)
-    
-    if cofre_id is None:
-        return jsonify({"message": "ID inválido."}), 400
-        
-    if not database.adulterar_cofre(cofre_id):
-        return jsonify({"message": "Não foi possível adulterar este registo."}), 404
-        
-    return jsonify({
-        "vaultId": vault_id_raw,
-        "hmacStatus": "invalid",
-        "signatureStatus": "invalid",
-        "description": "Sucesso! O Criptograma foi modificado diretamente na BD SQLite."
-    })
-
 
 # Arranque do servidor na porta 3000 requisitada pelo ficheiro api.js do teu frontend
 if __name__ == '__main__':

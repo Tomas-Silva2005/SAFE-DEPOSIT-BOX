@@ -19,14 +19,12 @@ const secretLabels = {
   symmetric: 'Chave simétrica',
   password: 'Palavra-passe',
   rsa: 'Chave privada RSA',
-  elgamal: 'Chave privada ElGamal',
 };
 
 const secretPlaceholders = {
   symmetric: 'Cole a chave simétrica gerada no depósito',
   password: 'Introduza a palavra-passe escolhida',
   rsa: 'Cole a chave privada RSA (PEM)',
-  elgamal: 'Cole a chave privada ElGamal (PEM)',
 };
 
 function OpenVaultForm() {
@@ -136,6 +134,18 @@ function OpenVaultForm() {
                     <th>Cifra</th>
                     <td>{result.cipher}</td>
                   </tr>
+                  {(result.iv && (result.method === 'symmetric' || result.method === 'password')) && (
+                    <tr>
+                      <th>IV</th>
+                      <td>{result.iv}</td>
+                    </tr>
+                  )}
+                  {result.salt && (
+                    <tr>
+                      <th>Salt</th>
+                      <td>{result.salt}</td>
+                    </tr>
+                  )}
                   {result.signatureHash && (
                     <tr>
                       <th>Assinatura</th>

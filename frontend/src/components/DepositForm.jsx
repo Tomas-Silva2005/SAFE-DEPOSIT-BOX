@@ -44,7 +44,7 @@ function DepositForm() {
         message: message.trim(),
         method,
         password: method === 'password' ? password : undefined,
-        cipher,
+          cipher: method === 'symmetric' ? cipher : undefined,
         hmac,
         signatureHash,
         rsaModulus: method === 'rsa' ? rsaModulus : undefined,
@@ -113,29 +113,30 @@ function DepositForm() {
 
           {PUBLIC_KEY_METHODS.includes(method) && (
             <p className="note">
-              Será gerado um par de chaves {method === 'rsa' ? 'RSA' : 'ElGamal'}. Guarde a chave
-              privada — o sistema não a recupera.
+              Será gerado um par de chaves RSA. Guarde a chave privada — o sistema não a recupera.
             </p>
           )}
 
           <div className="row">
-          <label className="field">
-            Cifra simétrica
-            <select value={cipher} onChange={(event) => setCipher(event.target.value)}>
-              {CIPHERS.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
+            {method === 'symmetric' && (
+              <label className="field">
+                Cifra simétrica
+                <select value={cipher} onChange={(event) => setCipher(event.target.value)}>
+                  {CIPHERS.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
+              </label>
+            )}
 
-          <label className="field">
-            Função HMAC
-            <select value={hmac} onChange={(event) => setHmac(event.target.value)}>
-              {HMAC_HASHES.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
+            <label className="field">
+              Função HMAC
+              <select value={hmac} onChange={(event) => setHmac(event.target.value)}>
+                {HMAC_HASHES.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {error && <p className="alert error">{error}</p>}

@@ -4,8 +4,8 @@
         {
             "previewLimit": 50,
             "driver": "SQLite",
-            "database": "cofres.db",
-            "name": "safes"
+            "name": "safes",
+            "database": "backend/cofres.db"
         }
     ]
 }

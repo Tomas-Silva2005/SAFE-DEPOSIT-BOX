@@ -24,6 +24,18 @@ function ResultPanel({ result, copied, onCopy }) {
             <th>Cifra</th>
             <td>{result.cipher}</td>
           </tr>
+          {(result.iv && (result.method === 'symmetric' || result.method === 'password')) && (
+            <tr>
+              <th>IV</th>
+              <td>{result.iv}</td>
+            </tr>
+          )}
+          {result.salt && (
+            <tr>
+              <th>Salt</th>
+              <td>{result.salt}</td>
+            </tr>
+          )}
           <tr>
             <th>HMAC</th>
             <td>{result.hmac}</td>

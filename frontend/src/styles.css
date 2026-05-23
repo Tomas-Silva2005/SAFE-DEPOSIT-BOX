@@ -93,7 +93,7 @@ select {
   margin: 0 0 0.65rem;
   color: var(--text-muted);
   font-size: 12px;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
 }
 
 .ascii-wave {
@@ -120,7 +120,7 @@ select {
 .site-nav {
   margin: 0;
   font-size: 13px;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
 }
 
 .site-nav a {
@@ -171,12 +171,12 @@ select {
 }
 
 .panel h2::before {
-  content: '[ ';
+  content: "[ ";
   color: var(--brand);
 }
 
 .panel h2::after {
-  content: ' ]';
+  content: " ]";
   color: var(--brand);
 }
 
@@ -184,7 +184,7 @@ select {
   margin: 0 0 0.85rem;
   color: var(--text-muted);
   font-size: 12px;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
 }
 
 form {
@@ -267,7 +267,7 @@ form {
 .field textarea {
   resize: vertical;
   min-height: 110px;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
   font-size: 13px;
 }
 
@@ -292,7 +292,7 @@ form {
   border: 1px solid var(--border);
   border-radius: 0;
   font-size: 12px;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
 }
 
 .note.warn {
@@ -321,7 +321,7 @@ form {
   cursor: pointer;
   font-size: 13px;
   font-weight: normal;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
 }
 
 .btn:hover:not(:disabled) {
@@ -386,7 +386,7 @@ form {
 .meta-table td {
   background: var(--bg-panel);
   color: var(--text-bright);
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
   word-break: break-all;
 }
 
@@ -410,7 +410,7 @@ form {
   color: #00ff00;
   border: 1px solid var(--border);
   border-radius: 0;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
@@ -429,7 +429,7 @@ form {
   border-radius: 0;
   font-size: 11px;
   font-weight: normal;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
   background: #252525;
   color: var(--text);
   border: 1px solid var(--border);
@@ -456,7 +456,7 @@ form {
   color: var(--text-bright);
   border: 1px solid var(--border);
   border-radius: 0;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
   font-size: 12px;
 }
 
@@ -483,17 +483,12 @@ form {
   color: #666666;
   border-top: 1px solid var(--border);
   background: #111111;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
 }
 
 .site-footer p {
   margin: 0;
 }
-
-.mock-tag {
-  color: var(--warn);
-}
-
 .advanced-options {
   border: 1px solid var(--border);
   background: #252525;
@@ -504,7 +499,7 @@ form {
   margin: 0;
   padding: 0.5rem 0.6rem;
   border-bottom: 1px solid var(--border);
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Consolas, "Courier New", monospace;
   font-size: 11px;
   color: var(--text-bright);
   text-transform: uppercase;
@@ -524,14 +519,7 @@ form {
   line-height: 1.35;
 }
 
-.tamper-panel h2::before,
-.tamper-panel h2::after {
-  color: var(--error);
-}
-
-.tamper-panel {
-  border-color: #5c3a3a;
-}
+/* Tamper demo styles removed */
 
 .btn.danger {
   background: #4a2020;

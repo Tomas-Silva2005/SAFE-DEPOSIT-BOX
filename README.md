@@ -1,39 +1,36 @@
 # SAFE-DEPOSIT-BOX
 
-Aplicação web para guardar e abrir mensagens cifradas num cofre digital.
+Aplicação para guardar e abrir mensagens cifradas (backend: Flask + SQLite, frontend: React + Vite).
 
-## Estrutura do projeto
+Instalação rápida
 
-```text
-SAFE-DEPOSIT-BOX/
-├── frontend/     # Interface React + Vite
-├── backend/      # API Python e base de dados SQLite
-└── README.md
-```
+Backend:
 
-## Início rápido
-Para a aplicação funcionar com o sistema real, seguir próximos passos em dois terminais separados.
+cd backend
+pip install -r requirements.txt
+export CHAVE_INTEGRIDADE_SISTEMA="mete o que quiseres"
+python app.py
 
-## 1. BACKEND (API Python)
-1. Entrar na pasta do BACKEND:
-```bash
-   cd backend
-```
-2. Instalar dependências necessárias:
-    pip install -r requirements.txt
-3. Executar servidor:
-    python app.py
+Frontend:
 
-### Frontend
-1. Entrar na pasta do FRONTEND:
-```bash
-    cd frontend
-```
-2. Instalar dependências necessárias:
-    npm install
-3. Iniciar servidor de desenvolvimento:
-    npm run dev
-Abre [http://localhost:5173](http://localhost:5173).
+cd frontend
+npm install
+npm run dev
 
+API
 
-Mais detalhes em [frontend/README.md](frontend/README.md) e [backend/README.md](backend/README.md).
+- `POST /api/deposit` — depositar um cofre
+- `POST /api/open` — abrir um cofre
+
+Métodos de protecção
+
+- `symmetric`: servidor gera chave simétrica; o utilizador guarda a chave.
+- `password`: chave derivada via PBKDF2 da password do utilizador.
+- `rsa`: envelope RSA — servidor guarda a chave simétrica cifrada; o utilizador recebe o `private_key` PEM.
+
+Segurança
+
+- Definir `CHAVE_INTEGRIDADE_SISTEMA` antes de arrancar o backend (usado para HMAC).
+- O utilizador é responsável por guardar passwords e chaves privadas.
+
+Ver detalhes de implementação em `backend/app.py` e `frontend/src` se quiserem.
