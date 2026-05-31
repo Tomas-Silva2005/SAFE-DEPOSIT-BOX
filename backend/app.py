@@ -25,7 +25,7 @@ def obter_chave_integridade():
 
 CHAVE_INTEGRIDADE_SISTEMA = obter_chave_integridade()
 
-# password
+# Palavra-passe
 def gerar_chave_derivada(password_str, salt):
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
@@ -53,7 +53,7 @@ def desserializar_chave_simetrica(secret: str) -> bytes:
         raise ValueError('Chave simétrica inválida.')
     return chave
 
-# aes
+# Cifra AES
 def cifrar_aes_256_cbc(mensagem_str, chave, iv):
     dados = mensagem_str.encode()
     padder = padding.PKCS7(128).padder()
@@ -196,15 +196,15 @@ def api_deposit():
     if not mensagem:
         return jsonify({"message": "A mensagem não pode estar vazia."}), 400
 
-    # Gerar os parâmetros aleatórios base do teu algoritmo
+    # Gera os parâmetros aleatórios necessários
     meu_salt = os.urandom(16) if metodo == 'password' else None
     meu_iv = gerar_iv()
     
-    # Gerar o par de chaves RSA que assina a mensagem (Autenticidade)
+    # Gera o par de chaves RSA para assinatura da mensagem (Autenticidade)
     chave_priv_assinatura, chave_pub_assinatura_pem = gerar_par_chaves_rsa(2048)
     assinatura = assinar_mensagem(mensagem, chave_priv_assinatura, signature_hash)
 
-    # Determinar a chave de cifragem simétrica (AES-256) com base no input do ecrã
+   # Define a chave simétrica de cifragem (AES-256), consoante o método escolhido
     if metodo == 'password':
         pwd = data.get('password', '').strip()
         if not pwd:
@@ -218,7 +218,7 @@ def api_deposit():
         minha_chave = os.urandom(32)
         tamanho = int(data.get('rsaModulus', 2048))
         chave_priv_rsa, _ = gerar_par_chaves_rsa(tamanho)
-        # cifra a chave simétrica com a chave pública do par gerado
+        # Cifra a chave simétrica com a chave pública gerada
         pub = chave_priv_rsa.public_key()
         enc_key = pub.encrypt(
             minha_chave,
@@ -229,7 +229,7 @@ def api_deposit():
             ),
         )
         enc_key_hex = enc_key.hex()
-        # Transforma a chave privada em PEM para dar ao utilizador no ecrã
+        # Exporta a chave privada em PEM para ser apresentada ao utilizador
         secret_para_o_frontend = chave_priv_rsa.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
@@ -238,12 +238,12 @@ def api_deposit():
     else:
         return jsonify({"message": "Método de depósito não suportado."}), 400
 
-    # Aplicar as tuas funções de Cifra e Integridade
+    # # Aplica a cifra e calcula o HMAC
     criptograma = cifrar(mensagem, minha_chave, meu_iv, cipher)
     meu_hmac = calcular_hmac_alg(criptograma, meu_iv, hmac_hash)
     
-    # Gravar na base de dados (esquema simples definido em database.py)
-    # O schema atual só armazena cryptogram, method, iv, salt, hmac e signature.
+    # Guarda na base de dados (esquema simples definido em database.py)
+    # O schema atual guarda cryptogram, method, iv, salt, hmac e signature.
     id_gerado = database.guardar_cofre(
         criptograma := criptograma.hex(),
         metodo,
@@ -262,7 +262,7 @@ def api_deposit():
     if id_gerado is None:
         return jsonify({"message": "Erro ao gravar na base de dados."}), 500
 
-    # O database.py não fornece format_vault_id; formatamos localmente
+    # Como database.py não fornece format_vault_id, o ID é formatado localmente
     resp = {
         "vaultId": f"vault_{id_gerado}",
         "method": metodo,
@@ -284,7 +284,7 @@ def api_open():
     vault_id_raw = data.get('vaultId')
     secret_fornecido = data.get('secret', '').strip()
     
-    # parser simples para o formato 'vault_N'
+    # Parser simples para o formato 'vault_N'
     def parse_vault_id(v):
         if v is None:
             return None
@@ -318,7 +318,7 @@ def api_open():
         signature_hash_stored = registo.get('signature_hash') or 'SHA256'
         hmac_hash_stored = registo.get('hmac_hash') or None
     except Exception:
-        # Dados corruptos (por exemplo após adulteração manual)
+        # Dados corrompidos (por exemplo após alteração manual)
         return jsonify({
             "hmacStatus": "invalid",
             "signatureStatus": "unsupported",
@@ -327,7 +327,7 @@ def api_open():
             "signatureHash": "SHA256",
         })
 
-    # 1. Validar Integridade com o teu HMAC
+    # 1. Validação da integridade com HMAC
     if not verificar_hmac(criptograma, hmac_guardado, iv, hmac_hash_stored):
         return jsonify({
             "hmacStatus": "invalid",
@@ -337,14 +337,14 @@ def api_open():
             "signatureHash": signature_hash_stored
         })
 
-    # 2. Recuperar a chave correta e decifrar com a cifra armazenada
+    # 2. Recuperaração da chave correta e decifrar com a cifra guardada
     try:
         if metodo == 'password':
             chave_decifra = gerar_chave_derivada(secret_fornecido, salt)
         elif metodo == 'symmetric':
             chave_decifra = desserializar_chave_simetrica(secret_fornecido)
         elif metodo in ('rsa', 'keys'):
-            # secret_fornecido is expected to be the user's RSA private key PEM
+            # secret_fornecido deve corresponder à chave privada RSA em formato PEM
             try:
                 priv = serialization.load_pem_private_key(secret_fornecido.encode('utf-8'), password=None)
             except Exception:
@@ -372,7 +372,7 @@ def api_open():
     except Exception:
         return jsonify({"message": "Chave incorreta. Falha na decifragem do algoritmo."}), 401
 
-    # 3. Verificação de assinatura (se tivermos chave pública guardada)
+    # 3. Verificação de assinatura (se existir chave pública guardada)
     signature_status = 'not_verified'
     try:
         if signature_pub and assinatura:
@@ -393,6 +393,6 @@ def api_open():
         "signatureHash": signature_hash_stored,
     })
 
-# Arranque do servidor na porta 3000 requisitada pelo ficheiro api.js do teu frontend
+# Arranque do servidor na porta 3000 usada pelo ficheiro api.js do frontend
 if __name__ == '__main__':
     app.run(port=3000, debug=True)
