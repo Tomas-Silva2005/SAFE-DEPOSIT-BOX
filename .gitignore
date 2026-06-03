@@ -1,0 +1,15 @@
+# Frontend
+frontend/node_modules
+frontend/dist
+frontend/.env
+frontend/.env.local
+
+# Backend
+backend/__pycache__
+backend/*.pyc
+backend/.env
+backend/cofres.db
+
+# Sistema
+.DS_Store
+*.log
